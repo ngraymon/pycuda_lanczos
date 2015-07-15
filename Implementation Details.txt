@@ -1,0 +1,33 @@
+ 
+
+
+ - Two dimensional arrays in numpy/PyCUDA are stored in pitched linear memory in row major order by default
+
+
+	Pitched linear memory is just a linear memory allocation calculated from the 2D sizes you provide, with padding added as required to ensure row major access will be correctly aligned for coalesced memory access. 
+
+	Link talking about how memory is arranged in the GPU, (banks in particular):
+		http://stackoverflow.com/questions/16119943/how-and-when-should-i-use-pitched-pointer-with-the-cuda-api
+
+	Handling 2-dimensional array in kernel in pycuda:
+		http://stackoverflow.com/questions/19850836/how-do-i-pass-a-2-dimensional-array-into-a-kernel-in-pycuda
+	If we want to write our own kernel and not use BLAS
+	The pitch is the number of bytes allocatede for a single row
+	The stride is the pitch of the storage in bytes
+	Treat the first element of stride as the byte pitch of the rows in memory.
+
+
+	The source code for the gpuarray in pycuda, look at line 676 to see the reshape function:
+		https://github.com/inducer/pycuda/blob/master/pycuda/gpuarray.py
+
+	It looks like reshape only changes the view on the data and doesn't actually change the arrangement of the information. It also requires that the array is contiguous.
+
+	We should just be able to use views (what reshape is doing) to calculate the x/y/z dimensions. One v_vector with three views should be sufficient.
+
+
+
+
+
+
+	Some code written with pyCuda for Maxwell architechture, good reference:
+		https://github.com/NervanaSystems/nervana-lib-gpu-performance-preview
