@@ -4,14 +4,16 @@ import numpy as np
 w = [1, 2, 3] #i,j,k
 w2 = np.multiply(w, w)
 print("w2", w2)
-basis_size = 400
-print("basis_size", basis_size)
+basis_size = 300
+#print("basis_size", basis_size)
 number_of_iterations = 100
 V_ceiling = 100
 grid_start = -10
 grid_finish = 10
 hbar, mass 	= 1, 1
 delta_x = ( (grid_finish - grid_start) / basis_size )
+alpha 	= np.float64(1.0) # no prefactor
+beta 	= np.float64(0.0) # C matrix is not involved so beta = 0.0
 
 # define the dimensions
 i = basis_size

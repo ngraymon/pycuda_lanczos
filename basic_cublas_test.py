@@ -30,7 +30,7 @@ linalg.init()
 import universe_definitions as ud
 
 # Double precision is only supported by devices with compute capability >= 1.3:
-gpu_data_type = np.float32 if misc.get_compute_capability(pycuda.autoinit.device) >= 1.3 else np.float64
+gpu_data_type = np.float64 if misc.get_compute_capability(pycuda.autoinit.device) >= 1.3 else np.float32
 
 # create kinetic component
 T_i = np.fromfunction(ud.construct_kinetic_factor, (ud.basis_size, ud.basis_size), dtype=np.float64)
