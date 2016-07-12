@@ -1,1 +1,4 @@
 ignore
+profiling_scripts/*.txt
+profiling_scripts/*.pdf
+profiling_scripts/*.png

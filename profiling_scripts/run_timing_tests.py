@@ -11,6 +11,7 @@ import pycuda.autoinit
 import numpy as np
 
 #scikit stuff
+
 import scipy.constants as s_const
 import skcuda.linalg as linalg
 import skcuda.cublas as cublas
@@ -26,8 +27,11 @@ import universe_definitions as ud
 #ITERATIONS = [100, 200, 400]
 
 
-BASIS_SIZE = [100, 200, 300, 400, 500] 
-ITERATIONS = [100, 200, 400]
+#BASIS_SIZE = [100, 200, 300, 400, 500] 
+#ITERATIONS = [100, 200, 400]
+
+BASIS_SIZE = [300] 
+ITERATIONS = [10]
 
 x_shape = (0, 1, 2)
 y_shape = (1, 0, 2)
@@ -67,24 +71,57 @@ def prepare_gpu(basis_size):
 	#U_y_gpu = gpuarray.zeros((basis_size, basis_size*basis_size), np.float64) # an empty matrix of the right size
 	#U_z_gpu = gpuarray.zeros((basis_size, basis_size*basis_size), np.float64) # an empty matrix of the right size
 	#return T_gpu, v_x_gpu, v_y_gpu, v_z_gpu, U_x_gpu, U_y_gpu, U_z_gpu
-	return T_gpu, v_x_gpu, U_x_gpu,
+	return T_gpu, v_x_gpu, U_x_gpu, v_vector
 
 # create two timers so we can speed-test each approach
-start = drv.Event()
-end = drv.Event()
+start_time_no_copy = drv.Event()
+end_time_no_copy = drv.Event()
+start_time_copy = drv.Event()
+end_time_copy = drv.Event()
 
 
 machine = "kepler" if(platform.release().startswith("2.6.32")) else "gpu003"
 for basis in BASIS_SIZE:
 	print("Basis size:", basis)
-	T_gpu, v_x_gpu, U_x_gpu, = prepare_gpu(basis) # set it up
+	T_gpu, v_x_gpu, U_x_gpu, v_vector = prepare_gpu(basis) # set it up
 	#T_gpu, v_x_gpu, v_y_gpu, v_z_gpu, U_x_gpu, U_y_gpu, U_z_gpu = prepare_gpu(basis) # set it up
 	i, j_k, i_prime = basis, basis*basis, basis
 	print("About to start iterations")
 	for num_iter in ITERATIONS:
 		print("ITERATION:", num_iter)
-		start.record()
+		start_time_no_copy.record()
 		for place_holder in range(num_iter):
+			cublas.cublasDgemm(handle = cublas.cublasCreate(), 
+								transa = 'n', transb = 'n',
+								m 	= i, n 	= j_k, 		k = i_prime,
+								lda = i, ldb = i_prime, ldc = i,
+								alpha = ud.alpha,  beta = ud.beta, 
+								A = T_gpu.gpudata, 
+								B = v_x_gpu.gpudata, 
+								C = U_x_gpu.gpudata, )
+			cublas.cublasDgemm(handle = cublas.cublasCreate(), 
+								transa = 'n', transb = 'n',
+								m 	= i, n 	= j_k, 		k = i_prime,
+								lda = i, ldb = i_prime, ldc = i,
+								alpha = ud.alpha,  beta = ud.beta, 
+								A = T_gpu.gpudata, 
+								B = v_x_gpu.gpudata, 
+								C = U_x_gpu.gpudata, )
+			cublas.cublasDgemm(handle = cublas.cublasCreate(), 
+								transa = 'n', transb = 'n',
+								m 	= i, n 	= j_k, 		k = i_prime,
+								lda = i, ldb = i_prime, ldc = i,
+								alpha = ud.alpha,  beta = ud.beta, 
+								A = T_gpu.gpudata, 
+								B = v_x_gpu.gpudata, 
+								C = U_x_gpu.gpudata, )
+		end_time_no_copy.record()
+		end_time_no_copy.synchronize()
+		finish_time_no_copy = start_time_no_copy.time_till(end_time_no_copy)*1e-3
+
+		start_time_copy.record()
+		for place_holder in range(num_iter):
+			v_x_gpu = gpuarray.to_gpu(v_vector)
 			cublas.cublasDgemm(handle = cublas.cublasCreate(), 
 								transa = 'n', transb = 'n',
 								m 	= i, n 	= j_k, 		k = i_prime,
@@ -128,14 +165,15 @@ for basis in BASIS_SIZE:
 								C = U_z_gpu.gpudata, )
 			'''
 			# we are not going to do the potential for now
-		end.record()
-		end.synchronize()
-		finish_time = start.time_till(end)*1e-3
+		end_time_copy.record()
+		end_time_copy.synchronize()
+		finish_time_copy = start_time_copy.time_till(end_time_copy)*1e-3
 		#print("Python time:", finish_time, "\n vs \n GPU time: ", secs)
 		with open ("./logs/{2}/{0}_{1}base64_cpu.txt".format(basis, num_iter, machine), "w+") as output_file:
 			print("Basis size: ", basis, 
 				"\nNumber of iterations: ", num_iter,
-				"\nTime to run ", finish_time,
+				"\nTime to run with no vector copying", finish_time_no_copy,
+				"\nTime to run with vector copying", finish_time_copy,
 				file = output_file)
 		print("Finished writing to file")
 	time.sleep(3)
